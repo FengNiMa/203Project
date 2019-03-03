@@ -1,0 +1,3 @@
++ Run SGD exp (save train/test loss at each iter)
++ Run EM exp
++ Calculate distances for the final results
