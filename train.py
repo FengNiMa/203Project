@@ -10,6 +10,9 @@ from tqdm import tqdm
 from collections import OrderedDict
 import os, sys
 
+# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
+
 ## Auxiliary classes
 class Logger(object):
     def __init__(self, log_fname):
@@ -62,19 +65,19 @@ def MoG_loss(X, z, pi, mu, cov, lam):
     return loss
 
 def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.005, max_step=100000, report_step=100, tol=1e-5):
-    X_train = torch.FloatTensor(train_samples)
-    X_test = torch.FloatTensor(test_samples)
+    X_train = torch.FloatTensor(train_samples).to(DEVICE)
+    X_test = torch.FloatTensor(test_samples).to(DEVICE)
     z = torch.FloatTensor(adv_sample) if adv_sample is not None else None
 
     dim = X_train.size(1)
     assert dim == X_test.size(1)
 
-    pi = torch.rand(K, dtype=torch.float)
+    pi = torch.rand(K, dtype=torch.float).to(DEVICE)
     pi /= pi.sum()
     pi.requires_grad_()
-    mu = torch.randn(K, dim, dtype=torch.float)
+    mu = torch.randn(K, dim, dtype=torch.float).to(DEVICE)
     mu.requires_grad_()
-    cov = torch.eye(dim, dtype=torch.float).repeat(K, 1, 1)
+    cov = torch.eye(dim, dtype=torch.float).repeat(K, 1, 1).to(DEVICE)
     cov.requires_grad_()
 
     params = [pi, mu, cov]
@@ -101,17 +104,17 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
     train_d_losses = []     # Dual, including adv term; training loss
     test_p_losses = []
     test_d_losses = []
-    for step in tqdm(range(max_step)):
+    step_iterator = tqdm(range(max_step))
+    for step in step_iterator:
         optimizer.zero_grad()
         loss = MoG_loss(X_train, z, pi, mu, cov, lam=lam)
         loss.backward()
         optimizer.step()
-
         if (step + 1) % report_step == 0:
             print('Step {}'.format(step + 1))
             for n, p in named_params.items():
                 print(n)
-                print(p)
+                print(p.data)
             print('training loss:')
             print(loss.item())
             print()
@@ -127,6 +130,7 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
                 test_d_losses.append(test_d_loss.item())
 
             if len(train_d_losses) > 1 and math.fabs(train_d_losses[-2] - train_d_losses[-1]) < tol:
+                step_iterator.close()
                 break
 
     losses = OrderedDict([('train_p_losses', train_p_losses), ('train_d_losses', train_d_losses), ('test_p_losses', test_p_losses), ('test_d_losses', test_d_losses)])
@@ -151,10 +155,11 @@ if __name__ == '__main__':
     train_samples = samples[:split_id]
     test_samples = samples[split_id:]
 
-    exps = 5
-    lam_settings = [0.1, 1.0, 10.0]
-    # lam_settings = [1.0]
+    exps = 3
+    # lam_settings = [0.1, 1.0, 10.0]
+    lam_settings = [1.0]
     K_settings = [3, 5, 10]
+    # K_settings = [5]
 
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
@@ -165,12 +170,11 @@ if __name__ == '__main__':
             output_fname = os.path.join(output_dir, 'result-nonadv-gd-K={}-id={}.npz'.format(K, e + 1))
 
             pi, mu, cov, losses = GD_solver(train_samples, test_samples, None, K=K)
-            pi = torch.softmax(pi, dim=0).detach().numpy()
-            mu = mu.detach().numpy()
-            cov = torch.bmm(cov.transpose(1, 2), cov).detach().numpy()
+            pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
+            mu = mu.detach().cpu().numpy()
+            cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
-
 
     # Adversarial on
     for K, lam in all_settings:
@@ -179,9 +183,9 @@ if __name__ == '__main__':
             output_fname = os.path.join(output_dir, 'result-adv-gd-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
 
             pi, mu, cov, losses = GD_solver(train_samples, test_samples, adv_sample, K=K, lam=lam)
-            pi = torch.softmax(pi, dim=0).detach().numpy()
-            mu = mu.detach().numpy()
-            cov = torch.bmm(cov.transpose(1, 2), cov).detach().numpy()
+            pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
+            mu = mu.detach().cpu().numpy()
+            cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
 
