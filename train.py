@@ -51,26 +51,31 @@ def MoG_prob(x, pi, mu, cov, min_eig=1e-3):
         prob += torch.exp(log_prob_k) * priors[k]
     return prob
 
-def MoG_loss(X, z, pi, mu, cov, lam):
-    # z: adv_sample
+def MoG_loss(X, Z, pi, mu, cov, lam):
+    # Z: adv_samples, can be None
     K, dim = mu.size()
     N = X.size(0)
     assert X.size(1) == dim
     assert pi.size() == (K,)
     assert cov.size() == (K, dim, dim)
     
-    loss = lam * MoG_prob(z, pi, mu, cov) if z is not None else 0
+    loss = 0
+    if Z is not None:
+        N_z = Z.size(0)
+        for z in Z:
+            loss += lam * MoG_prob(z, pi, mu, cov) / N_z
     for x in X:
         loss -= torch.log(MoG_prob(x, pi, mu, cov)) / N
     return loss
 
-def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
+def GD_solver(train_samples, test_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
     X_train = torch.FloatTensor(train_samples).to(DEVICE)
     X_test = torch.FloatTensor(test_samples).to(DEVICE)
-    z = torch.FloatTensor(adv_sample) if adv_sample is not None else None
+    Z = torch.FloatTensor(adv_samples) if adv_samples is not None else None
 
     dim = X_train.size(1)
     assert dim == X_test.size(1)
+    assert Z is None or dim == Z.size(1)
 
     pi = torch.rand(K, dtype=torch.float).to(DEVICE)
     pi /= pi.sum()
@@ -96,7 +101,7 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
                 raise ValueError
         p.register_hook(_hook)
     print('loss:')
-    print(MoG_loss(X_train, z, pi, mu, cov, lam=lam))
+    print(MoG_loss(X_train, Z, pi, mu, cov, lam=lam))
 
     optimizer = optim.SGD(params, lr=lr)
 
@@ -110,7 +115,7 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
     best_train_loss = 1e10
     for step in step_iterator:
         optimizer.zero_grad()
-        loss = MoG_loss(X_train, z, pi, mu, cov, lam=lam)
+        loss = MoG_loss(X_train, Z, pi, mu, cov, lam=lam)
         loss.backward()
         optimizer.step()
         if (step + 1) % report_step == 0:
@@ -125,11 +130,11 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
             with torch.no_grad():
                 train_p_loss = MoG_loss(X_train, None, pi, mu, cov, lam=lam)
                 train_p_losses.append(train_p_loss.item())
-                train_d_loss = MoG_loss(X_train, z, pi, mu, cov, lam=lam)
+                train_d_loss = MoG_loss(X_train, Z, pi, mu, cov, lam=lam)
                 train_d_losses.append(train_d_loss.item())
                 test_p_loss = MoG_loss(X_test, None, pi, mu, cov, lam=lam)
                 test_p_losses.append(test_p_loss.item())
-                test_d_loss = MoG_loss(X_test, z, pi, mu, cov, lam=lam)
+                test_d_loss = MoG_loss(X_test, Z, pi, mu, cov, lam=lam)
                 test_d_losses.append(test_d_loss.item())
 
             if loss.item() < best_train_loss - tol:
@@ -147,15 +152,15 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
 
 if __name__ == '__main__':
     activate_logger('log.txt')
-    data_fname = 'data.npz'
-    output_dir = 'results'
+    data_fname = 'data_multi_adv.npz'
+    output_dir = 'results_multi_adv'
     os.makedirs(output_dir, exist_ok=True)
 
     load_data = np.load(data_fname)
     true_pi = load_data['pi']
     true_mu = load_data['mu']
     samples = load_data['samples']
-    adv_sample = load_data['adv_sample']
+    adv_samples = load_data['adv_sample']
 
     N = 100
     split_id = -int(N/5)
@@ -166,8 +171,8 @@ if __name__ == '__main__':
     exps = 3
     # lam_settings = [0.1, 1.0, 10.0]
     lam_settings = [1.0]
-    # K_settings = [3, 5, 10]
-    K_settings = [10]
+    K_settings = [3, 5, 10]
+    # K_settings = [10]
 
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
@@ -190,7 +195,7 @@ if __name__ == '__main__':
             print('*** Adversarial on, K = {}, lam = {}, id = {}'.format(K, lam, e + 1))
             output_fname = os.path.join(output_dir, 'result-adv-gd-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
 
-            pi, mu, cov, losses = GD_solver(train_samples, test_samples, adv_sample, K=K, lam=lam)
+            pi, mu, cov, losses = GD_solver(train_samples, test_samples, adv_samples, K=K, lam=lam)
             pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
             mu = mu.detach().cpu().numpy()
             cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
