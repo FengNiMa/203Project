@@ -35,19 +35,19 @@ def deactivate_logger():
     sys.stdout = sys.stdout.terminal
 
 
-def MoG_prob(x, pi, mu, cov):
+def MoG_prob(x, pi, mu, cov, min_eig=1e-3):
     K, dim = mu.size()
     assert x.size() == (dim,)
     assert pi.size() == (K,)
     assert cov.size() == (K, dim, dim)
     
     priors = torch.softmax(pi, dim=0)
-    cov2 = torch.bmm(cov.transpose(1, 2).contiguous(), cov)
+    # cov2 = torch.bmm(cov.transpose(1, 2).contiguous(), cov)
     
     prob = 0.0
     for k in range(K):
-        # cov2 = torch.matmul(cov[k].t(), cov[k])
-        log_prob_k = -dim * 0.5 * math.log(2 * math.pi) - 0.5 * cov2[k].logdet() - 0.5 * cov2[k].inverse().matmul(x - mu[k]).dot(x - mu[k])
+        cov2 = torch.matmul(cov[k].t(), cov[k]) + torch.eye(dim) * min_eig
+        log_prob_k = -dim * 0.5 * math.log(2 * math.pi) - 0.5 * cov2.logdet() - 0.5 * cov2.inverse().matmul(x - mu[k]).dot(x - mu[k])
         prob += torch.exp(log_prob_k) * priors[k]
     return prob
 
@@ -64,7 +64,7 @@ def MoG_loss(X, z, pi, mu, cov, lam):
         loss -= torch.log(MoG_prob(x, pi, mu, cov)) / N
     return loss
 
-def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.005, max_step=100000, report_step=100, tol=1e-5):
+def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
     X_train = torch.FloatTensor(train_samples).to(DEVICE)
     X_test = torch.FloatTensor(test_samples).to(DEVICE)
     z = torch.FloatTensor(adv_sample) if adv_sample is not None else None
@@ -105,6 +105,9 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
     test_p_losses = []
     test_d_losses = []
     step_iterator = tqdm(range(max_step))
+
+    no_improve = 0
+    best_train_loss = 1e10
     for step in step_iterator:
         optimizer.zero_grad()
         loss = MoG_loss(X_train, z, pi, mu, cov, lam=lam)
@@ -129,7 +132,12 @@ def GD_solver(train_samples, test_samples, adv_sample=None, lam=2.0, K=5, lr=0.0
                 test_d_loss = MoG_loss(X_test, z, pi, mu, cov, lam=lam)
                 test_d_losses.append(test_d_loss.item())
 
-            if len(train_d_losses) > 1 and math.fabs(train_d_losses[-2] - train_d_losses[-1]) < tol:
+            if loss.item() < best_train_loss - tol:
+                no_improve = 0
+                best_train_loss = loss.item()
+            else:
+                no_improve += 1
+            if no_improve > patience:
                 step_iterator.close()
                 break
 
@@ -158,8 +166,8 @@ if __name__ == '__main__':
     exps = 3
     # lam_settings = [0.1, 1.0, 10.0]
     lam_settings = [1.0]
-    K_settings = [3, 5, 10]
-    # K_settings = [5]
+    # K_settings = [3, 5, 10]
+    K_settings = [10]
 
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
