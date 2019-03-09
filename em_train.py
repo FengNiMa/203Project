@@ -24,7 +24,7 @@ def penalize_term(X, Z, pi, mu, sigma, lam):
         loss += lam*s / Z_n
     return loss
    
-def em_gmm(X, pi, mu, sigma, tol=1e-5, max_iter=1000):
+def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
     n, p = X.shape
     k = len(pi)
 
@@ -73,7 +73,7 @@ def em_gmm(X, pi, mu, sigma, tol=1e-5, max_iter=1000):
     return pi, mu, sigma, losses, i_iter
 
 
-def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-5, max_iter=200):
+def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
     n, p = X.shape
     k = len(pi)
 
@@ -169,16 +169,16 @@ if __name__ == '__main__':
     output_dir = 'results_multi_adv_EM'
     os.makedirs(output_dir,exist_ok=True)
 
-    data_fname = 'data.npz'
+    data_fname = 'data_multi_adv.npz'
     load_data = np.load(data_fname)
-    N = 100
+    N = 500
     true_pi = load_data['pi']
     true_mu = load_data['mu']
     X = load_data['samples'][:N]
     Z = load_data['adv_sample']
     
     exps = 5
-    lam_settings = [0.1, 1.0, 10.0]
+    lam_settings = [0.01, 0.1, 1.0, 10.0]
     K_settings = [3, 5, 10]
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
@@ -189,7 +189,7 @@ if __name__ == '__main__':
         for e in range(exps):
             try:
                 # initial guesses for parameters
-                pis = np.random.random(K)
+                pis = np.ones(K)
                 pis /= pis.sum()
                 mus = np.random.random((K,2))
                 sigmas = np.array([np.eye(2)] * K)
@@ -209,7 +209,7 @@ if __name__ == '__main__':
                                     "iters":inner_iter,
                                     "time":time.time()-start_t})
             except:
-                print("error")
+                print("Error; singular matrix")
 
         with open(output_dir+'/EM-K={}-lam={}-N={}.p'.format(K, lam, N), 'wb') as p:
             pickle.dump(em_results, p)

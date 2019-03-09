@@ -208,7 +208,7 @@ if __name__ == '__main__':
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
         
-        with open('losses-K={}-lam={}-N={}.json'.format(K, lam, N), 'w') as outfile:
+        with open(output_dir+'/losses-K={}-lam={}-N={}.json'.format(K, lam, N), 'w') as outfile:
             json.dump({"p_loss":p_losses, "d_loss":d_losses }, outfile)
     
     deactivate_logger()
