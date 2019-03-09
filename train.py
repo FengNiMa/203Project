@@ -9,9 +9,11 @@ from torch.distributions.multivariate_normal import MultivariateNormal
 from tqdm import tqdm
 from collections import OrderedDict
 import os, sys
+import json
 
-# DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-DEVICE = torch.device('cpu')
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(DEVICE)
+#DEVICE = torch.device('cpu')
 
 ## Auxiliary classes
 class Logger(object):
@@ -68,13 +70,13 @@ def MoG_loss(X, Z, pi, mu, cov, lam):
         loss -= torch.log(MoG_prob(x, pi, mu, cov)) / N
     return loss
 
-def GD_solver(train_samples, test_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
+def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
     X_train = torch.FloatTensor(train_samples).to(DEVICE)
-    X_test = torch.FloatTensor(test_samples).to(DEVICE)
+    #X_test = torch.FloatTensor(test_samples).to(DEVICE)
     Z = torch.FloatTensor(adv_samples) if adv_samples is not None else None
 
     dim = X_train.size(1)
-    assert dim == X_test.size(1)
+    #assert dim == X_test.size(1)
     assert Z is None or dim == Z.size(1)
 
     pi = torch.rand(K, dtype=torch.float).to(DEVICE)
@@ -107,8 +109,8 @@ def GD_solver(train_samples, test_samples, adv_samples=None, lam=1.0, K=5, lr=0.
 
     train_p_losses = []     # Primal, no adv term
     train_d_losses = []     # Dual, including adv term; training loss
-    test_p_losses = []
-    test_d_losses = []
+    #test_p_losses = []
+    #test_d_losses = []
     step_iterator = tqdm(range(max_step))
 
     no_improve = 0
@@ -132,10 +134,10 @@ def GD_solver(train_samples, test_samples, adv_samples=None, lam=1.0, K=5, lr=0.
                 train_p_losses.append(train_p_loss.item())
                 train_d_loss = MoG_loss(X_train, Z, pi, mu, cov, lam=lam)
                 train_d_losses.append(train_d_loss.item())
-                test_p_loss = MoG_loss(X_test, None, pi, mu, cov, lam=lam)
-                test_p_losses.append(test_p_loss.item())
-                test_d_loss = MoG_loss(X_test, Z, pi, mu, cov, lam=lam)
-                test_d_losses.append(test_d_loss.item())
+                #test_p_loss = MoG_loss(X_test, None, pi, mu, cov, lam=lam)
+                #test_p_losses.append(test_p_loss.item())
+                #test_d_loss = MoG_loss(X_test, Z, pi, mu, cov, lam=lam)
+                #test_d_losses.append(test_d_loss.item())
 
             if loss.item() < best_train_loss - tol:
                 no_improve = 0
@@ -146,7 +148,7 @@ def GD_solver(train_samples, test_samples, adv_samples=None, lam=1.0, K=5, lr=0.
                 step_iterator.close()
                 break
 
-    losses = OrderedDict([('train_p_losses', train_p_losses), ('train_d_losses', train_d_losses), ('test_p_losses', test_p_losses), ('test_d_losses', test_d_losses)])
+    losses = OrderedDict([('train_p_losses', train_p_losses), ('train_d_losses', train_d_losses)]) #, ('test_p_losses', test_p_losses), ('test_d_losses', test_d_losses)])
 
     return pi, mu, cov, losses
 
@@ -154,7 +156,7 @@ if __name__ == '__main__':
     activate_logger('log.txt')
     data_fname = 'data_multi_adv.npz'
     output_dir = 'results_multi_adv'
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir,exist_ok=True)
 
     load_data = np.load(data_fname)
     true_pi = load_data['pi']
@@ -163,19 +165,19 @@ if __name__ == '__main__':
     adv_samples = load_data['adv_sample']
 
     N = 100
-    split_id = -int(N/5)
-    samples = samples[:N]
-    train_samples = samples[:split_id]
-    test_samples = samples[split_id:]
+    #split_id = -int(N/5)
+    train_samples = samples[:N]
+    #train_samples = samples[:split_id]
+    #test_samples = samples[split_id:]
 
     exps = 3
-    # lam_settings = [0.1, 1.0, 10.0]
-    lam_settings = [1.0]
+    lam_settings = [0.1, 1.0, 10.0]
+    #lam_settings = [1.0]
     K_settings = [3, 5, 10]
     # K_settings = [10]
-
+    
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
-
+    '''
     # Adversarial off
     for K in K_settings:
         for e in range(exps):
@@ -188,19 +190,26 @@ if __name__ == '__main__':
             cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
-
+    '''
     # Adversarial on
     for K, lam in all_settings:
+        p_losses = []
+        d_losses = []
         for e in range(exps):
             print('*** Adversarial on, K = {}, lam = {}, id = {}'.format(K, lam, e + 1))
             output_fname = os.path.join(output_dir, 'result-adv-gd-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
 
-            pi, mu, cov, losses = GD_solver(train_samples, test_samples, adv_samples, K=K, lam=lam)
+            pi, mu, cov, losses = GD_solver(train_samples, adv_samples, K=K, lam=lam)
+            p_losses.append(losses["train_p_losses"])
+            d_losses.append(losses["train_d_losses"])
             pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
             mu = mu.detach().cpu().numpy()
             cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
-
+        
+        with open('losses-K={}-lam={}-N={}.json'.format(K, lam, N), 'w') as outfile:
+            json.dump({"p_loss":p_losses, "d_loss":d_losses }, outfile)
+    
     deactivate_logger()
 
