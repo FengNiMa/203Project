@@ -11,9 +11,8 @@ from collections import OrderedDict
 import os, sys
 import json
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(DEVICE)
-#DEVICE = torch.device('cpu')
+#DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
 
 ## Auxiliary classes
 class Logger(object):
@@ -172,7 +171,7 @@ if __name__ == '__main__':
 
     exps = 3
     lam_settings = [0.1, 1.0, 10.0]
-    #lam_settings = [1.0]
+    lam_settings = [1.0]
     K_settings = [3, 5, 10]
     # K_settings = [10]
     
