@@ -11,9 +11,8 @@ from collections import OrderedDict
 import os, sys
 import json
 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(DEVICE)
-#DEVICE = torch.device('cpu')
+#DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cpu')
 
 ## Auxiliary classes
 class Logger(object):
@@ -105,7 +104,8 @@ def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=1
     print('loss:')
     print(MoG_loss(X_train, Z, pi, mu, cov, lam=lam))
 
-    optimizer = optim.SGD(params, lr=lr)
+    # optimizer = optim.SGD(params, lr=lr)
+    optimizer = optim.Adam(params, lr=lr)
 
     train_p_losses = []     # Primal, no adv term
     train_d_losses = []     # Dual, including adv term; training loss
@@ -171,8 +171,8 @@ if __name__ == '__main__':
     #test_samples = samples[split_id:]
 
     exps = 3
-    lam_settings = [0.1, 1.0, 10.0]
-    #lam_settings = [1.0]
+    lam_settings = [0.1, 1.0]
+    # lam_settings = [1.0]
     K_settings = [3, 5, 10]
     # K_settings = [10]
     
@@ -197,9 +197,9 @@ if __name__ == '__main__':
         d_losses = []
         for e in range(exps):
             print('*** Adversarial on, K = {}, lam = {}, id = {}'.format(K, lam, e + 1))
-            output_fname = os.path.join(output_dir, 'result-adv-gd-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
+            output_fname = os.path.join(output_dir, 'result-adv-adam-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
 
-            pi, mu, cov, losses = GD_solver(train_samples, adv_samples, K=K, lam=lam)
+            pi, mu, cov, losses = GD_solver(train_samples, adv_samples, K=K, lam=lam, lr=1e-3)
             p_losses.append(losses["train_p_losses"])
             d_losses.append(losses["train_d_losses"])
             pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
@@ -208,7 +208,7 @@ if __name__ == '__main__':
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
         
-        with open(output_dir+'/losses-K={}-lam={}-N={}.json'.format(K, lam, N), 'w') as outfile:
+        with open(os.path.join(output_dir, 'losses-K={}-lam={}-N={}.json'.format(K, lam, N)), 'w') as outfile:
             json.dump({"p_loss":p_losses, "d_loss":d_losses }, outfile)
     
     deactivate_logger()
