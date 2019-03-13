@@ -1,3 +1,9 @@
-+ Run SGD exp (save train/test loss at each iter)
-+ Run EM exp
-+ Calculate distances for the final results
+v Run SGD exp (save train/test loss at each iter)
+v Run EM exp
+v Calculate distances for the final results
+
++ Create 2 new synthetic datasets
++ Run MNIST exp
+	+ Get adversarial samples from FGSM
+	+ Train generative / classification model and evaluate
++ Final Report
