@@ -166,10 +166,10 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
 
 if __name__ == '__main__':
     
-    output_dir = 'results_multi_adv_EM'
+    output_dir = 'results'
     os.makedirs(output_dir,exist_ok=True)
 
-    data_fname = 'data_multi_adv_1000.npz'
+    data_fname = os.path.join('datasets', 'multi-adv-0', 'data_multi_adv_1000.npz')
     load_data = np.load(data_fname)
     N = 1000
     true_pi = load_data['pi']
@@ -216,8 +216,8 @@ if __name__ == '__main__':
                 print("Error")
                 print(e)
         
-        with open(output_dir+'/EM-K={}-lam={}-N={}.p'.format(K, lam, N), 'wb') as p:
+        with open(os.path.join(output_dir, 'multi-adv-0', 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_results, p)
 
-        with open(output_dir+'/Penalized-K={}-lam={}-N={}.p'.format(K, lam, N), 'wb') as p:
+        with open(os.path.join(output_dir, 'multi-adv-0', 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_p_results, p)

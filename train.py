@@ -154,9 +154,9 @@ def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=1
 
 if __name__ == '__main__':
     activate_logger('log.txt')
-    data_fname = 'data_multi_adv.npz'
-    output_dir = 'results_multi_adv'
-    os.makedirs(output_dir,exist_ok=True)
+    data_fname = os.path.join('datasets', 'multi-adv-0', 'data_multi_adv.npz')
+    output_dir = 'results'
+    os.makedirs(output_dir, exist_ok=True)
 
     load_data = np.load(data_fname)
     true_pi = load_data['pi']
@@ -197,7 +197,7 @@ if __name__ == '__main__':
         d_losses = []
         for e in range(exps):
             print('*** Adversarial on, K = {}, lam = {}, id = {}'.format(K, lam, e + 1))
-            output_fname = os.path.join(output_dir, 'result-adv-adam-K={}-lam={}-id={}.npz'.format(K, lam, e + 1))
+            output_fname = os.path.join(output_dir, 'multi-adv-0', 'GD', 'result-adv-adam-K={}-lam={}-N={}-id={}.npz'.format(K, lam, N, e + 1))
 
             pi, mu, cov, losses = GD_solver(train_samples, adv_samples, K=K, lam=lam, lr=1e-3)
             p_losses.append(losses["train_p_losses"])
@@ -208,7 +208,7 @@ if __name__ == '__main__':
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
         
-        with open(os.path.join(output_dir, 'losses-K={}-lam={}-N={}.json'.format(K, lam, N)), 'w') as outfile:
+        with open(os.path.join(output_dir, 'multi-adv-0', 'GD', 'losses-adam-K={}-lam={}-N={}.json'.format(K, lam, N)), 'w') as outfile:
             json.dump({"p_loss":p_losses, "d_loss":d_losses }, outfile)
     
     deactivate_logger()
