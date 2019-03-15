@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 from scipy.stats import multivariate_normal as mvn
 import os, sys, time, pickle
+from tqdm import tqdm
 
 def log_likelihood(X, pi, mu, sigma):
     ll = 0.0
@@ -30,7 +31,8 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
 
     ll_old = log_likelihood(X, pi, mu, sigma)/n
     losses = [ll_old]
-    for i_iter in range(max_iter):
+    step_iterator = tqdm(range(max_iter))
+    for i_iter in step_iterator:
         #print('Iteration %d: log-likelihood is %.6f'%(i_iter, ll_old))
 
         # E-step
@@ -66,6 +68,7 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
 
         if np.abs(ll_new - ll_old) < tol:
             print('Terminate! iteration %d: log-likelihood is %.6f'%(i_iter, ll_new))
+            step_iterator.close()
             break
             
         ll_old = ll_new
@@ -73,7 +76,7 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
     return pi, mu, sigma, losses, i_iter
 
 
-def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
+def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
     n, p = X.shape
     k = len(pi)
 
@@ -83,8 +86,8 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
     d_loss = [loss]
 
     inner_iter_n = []
-
-    for i_iter in range(max_iter):
+    step_iterator = tqdm(range(max_iter))
+    for i_iter in step_iterator:
         #print('Iteration %d: log-likelihood is %.6f'%(i_iter, loss))
 
         # E-step
@@ -157,6 +160,7 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
 
         if np.abs(loss_ - loss) < tol:
             print('Terminate! iteration %d: log-likelihood is %.6f'%(i_iter, loss_))
+            step_iterator.close()
             break
             
         loss = loss_
@@ -167,18 +171,20 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=200):
 if __name__ == '__main__':
     
     output_dir = 'results'
-    os.makedirs(output_dir,exist_ok=True)
+    dataset_name = 'multi-adv-2'
+    os.makedirs(os.path.join(output_dir, dataset_name, 'EM'), exist_ok=True)
 
-    data_fname = os.path.join('datasets', 'multi-adv-0', 'data_multi_adv_1000.npz')
+    data_fname = os.path.join('datasets', dataset_name, 'data_multi_adv_1000.npz')
     load_data = np.load(data_fname)
     N = 1000
     true_pi = load_data['pi']
     true_mu = load_data['mu']
     X = load_data['samples'][:N]
     Z = load_data['adv_sample']
+    data_range = 6.0
     
     exps = 6
-    lam_settings = [0.01, 0.1, 1.0, 10.0]
+    lam_settings = [0.1, 1.0, 10.0, 100.0]
     K_settings = [3, 5, 10]
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
@@ -192,32 +198,32 @@ if __name__ == '__main__':
                 # initial guesses for parameters
                 pis = np.ones(K)
                 pis /= pis.sum()
-                mus = np.random.random((K,2))*10 #range is [0,6]x[0,6]
+                mus = np.random.random((K,2)) * data_range #range is [0,6]x[0,6]
                 sigmas = np.array([np.eye(2)] * K)
 
                 start_t = time.time()
                 pi, mu, conv, losses, iter_n = em_gmm(X, pis, mus, sigmas)
                 em_results.append({"init_guess":[pis, mus, sigmas],
-                                    "pi":pi, "mu":mu, "conv": conv,
+                                    "pi":pi, "mu":mu, "conv":conv,
                                     "loss":losses, "iters":iter_n, 
                                     "time":time.time()-start_t})
                 
-                start_t = time.time()            
+                start_t = time.time()
                 pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas)
                 em_p_results.append({"init_guess":[pis, mus, sigmas],
-                                    "pi":pi, "mu":mu, "conv": conv, 
+                                    "pi":pi, "mu":mu, "conv":conv, 
                                     "p_loss":p_loss, "d_loss":d_loss, 
                                     "iters":inner_iter,
                                     "time":time.time()-start_t})
-                trials +=1
+                trials += 1
                 if trials >= 3:
                     break
             except Exception as e:
                 print("Error")
                 print(e)
         
-        with open(os.path.join(output_dir, 'multi-adv-0', 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
+        with open(os.path.join(output_dir, dataset_name, 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_results, p)
 
-        with open(os.path.join(output_dir, 'multi-adv-0', 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
+        with open(os.path.join(output_dir, dataset_name, 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_p_results, p)
