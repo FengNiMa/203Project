@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
 
             start_t = time.time()
-            pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas)
+            pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas, lmda=lam)
             em_p_results.append({"init_guess":[pis, mus, sigmas],
                                 "pi":pi, "mu":mu, "conv":conv, 
                                 "p_loss":p_loss, "d_loss":d_loss, 
