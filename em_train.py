@@ -5,6 +5,26 @@ from scipy.stats import multivariate_normal as mvn
 import os, sys, time, pickle
 from tqdm import tqdm
 
+class Logger(object):
+    def __init__(self, log_fname):
+        self.terminal = sys.stdout
+        self.log = open(log_fname, "w")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)  
+
+    def flush(self):
+        pass
+
+def activate_logger(log_fname):
+    logger = Logger(log_fname)
+    sys.stdout = logger
+
+def deactivate_logger():
+    sys.stdout.log.close()
+    sys.stdout = sys.stdout.terminal
+
 def log_likelihood(X, pi, mu, sigma):
     k = len(pi) # dimention
     d = sigma.shape[1]
@@ -131,7 +151,8 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
 
         # M-iter
         old_mu, old_sigma = mu, sigma
-        for inner_iter in range(30):
+
+        for inner_iter in range(100):
             gamma = np.zeros(k)
             for j in range(k):
                 for z in Z:
@@ -147,10 +168,10 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
 
             sigma = np.zeros((k, p, p))
             for j in range(k):
-                v_z_muj = np.reshape(z - old_mu[j],  (2,1))
+                v_z_muj = np.reshape(z - old_mu[j],  (2, 1))
                 sigma[j] -= np.array(gamma[j] * np.dot(v_z_muj, v_z_muj.T))
                 for i in range(n):
-                    ys = np.reshape(X[i]- old_mu[j], (2,1))
+                    ys = np.reshape(X[i]- old_mu[j], (2, 1))
                     sigma[j] += w[j, i] * np.dot(ys, ys.T)
                 sigma[j] /= w[j,:].sum()
             
@@ -180,6 +201,7 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
 
 
 if __name__ == '__main__':
+    activate_logger('log-EM.txt')
     
     output_dir = 'results'
     dataset_name = 'MNIST'
@@ -191,13 +213,22 @@ if __name__ == '__main__':
     #true_pi = load_data['pi']
     #true_mu = load_data['mu']
     X = load_data['data'][:N]
-    #Z = load_data['adv_sample']
+    Z = load_data['adv_sample']
     data_range = 1.0
     
+
     d = X.shape[1]
+    
+    '''
+    #mnist settings
     exps = 2
     lam_settings = [0] #[0.1, 1.0, 10.0, 100.0]
     K_settings = [2, 5, 7, 10, 15]
+    '''
+    exps = 6
+    lam_settings = [10.0, 100.0, 1000.0]
+    K_settings = [3, 5, 10]
+
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
     for K, lam in all_settings:
@@ -238,3 +269,5 @@ if __name__ == '__main__':
             pickle.dump(em_results, p)
         with open(os.path.join(output_dir, dataset_name, 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_p_results, p)
+        
+    deactivate_logger()

@@ -1,5 +1,5 @@
 .ipynb_checkpoints/*
 .DS_Store
 temp/*
-log.txt
+log*.txt
 Results-*.ipynb

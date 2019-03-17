@@ -69,7 +69,7 @@ def MoG_loss(X, Z, pi, mu, cov, lam):
         loss -= torch.log(MoG_prob(x, pi, mu, cov)) / N
     return loss
 
-def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=100000, report_step=100, tol=1e-5, patience=10):
+def GD_solver(train_samples, adv_samples=None, data_range=6.0, lam=1.0, K=5, lr=0.002, max_step=100000, report_step=100, tol=1e-5, patience=10):
     X_train = torch.FloatTensor(train_samples).to(DEVICE)
     #X_test = torch.FloatTensor(test_samples).to(DEVICE)
     Z = torch.FloatTensor(adv_samples) if adv_samples is not None else None
@@ -81,7 +81,7 @@ def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=1
     pi = torch.rand(K, dtype=torch.float).to(DEVICE)
     pi /= pi.sum()
     pi.requires_grad_()
-    mu = torch.randn(K, dim, dtype=torch.float).to(DEVICE)
+    mu = torch.rand(K, dim, dtype=torch.float).to(DEVICE) * data_range
     mu.requires_grad_()
     cov = torch.eye(dim, dtype=torch.float).repeat(K, 1, 1).to(DEVICE)
     cov.requires_grad_()
@@ -154,27 +154,32 @@ def GD_solver(train_samples, adv_samples=None, lam=1.0, K=5, lr=0.02, max_step=1
 
 if __name__ == '__main__':
     activate_logger('log.txt')
-    data_fname = os.path.join('datasets', 'multi-adv-0', 'data_multi_adv.npz')
+
     output_dir = 'results'
-    os.makedirs(output_dir, exist_ok=True)
+    dataset_name = 'multi-adv-2'
+    os.makedirs(os.path.join(output_dir, dataset_name, 'GD'), exist_ok=True)
+
+    data_fname = os.path.join('datasets', dataset_name, 'data_multi_adv_1000.npz')
 
     load_data = np.load(data_fname)
     true_pi = load_data['pi']
     true_mu = load_data['mu']
     samples = load_data['samples']
     adv_samples = load_data['adv_sample']
+    dim = samples.shape[1]
 
-    N = 100
+    N = 1000
     #split_id = -int(N/5)
     train_samples = samples[:N]
     #train_samples = samples[:split_id]
     #test_samples = samples[split_id:]
 
-    exps = 3
-    lam_settings = [0.1, 1.0]
+    exps = 1
+    lam_settings = [10.0, 100.0, 1000.0]
     # lam_settings = [1.0]
     K_settings = [3, 5, 10]
     # K_settings = [10]
+    min_eig = 1e-3
     
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
     '''
@@ -197,7 +202,7 @@ if __name__ == '__main__':
         d_losses = []
         for e in range(exps):
             print('*** Adversarial on, K = {}, lam = {}, id = {}'.format(K, lam, e + 1))
-            output_fname = os.path.join(output_dir, 'multi-adv-0', 'GD', 'result-adv-adam-K={}-lam={}-N={}-id={}.npz'.format(K, lam, N, e + 1))
+            output_fname = os.path.join(output_dir, dataset_name, 'GD', 'result-adv-adam-K={}-lam={}-N={}-id={}.npz'.format(K, lam, N, e + 1))
 
             pi, mu, cov, losses = GD_solver(train_samples, adv_samples, K=K, lam=lam, lr=1e-3)
             p_losses.append(losses["train_p_losses"])
@@ -205,11 +210,12 @@ if __name__ == '__main__':
             pi = torch.softmax(pi, dim=0).detach().cpu().numpy()
             mu = mu.detach().cpu().numpy()
             cov = torch.bmm(cov.transpose(1, 2), cov).detach().cpu().numpy()
+            cov += np.tile(np.eye(dim), (K, 1, 1)) * min_eig  # Used in MoG_prob
 
             np.savez(output_fname, pi=pi, mu=mu, cov=cov, **losses)
         
-        with open(os.path.join(output_dir, 'multi-adv-0', 'GD', 'losses-adam-K={}-lam={}-N={}.json'.format(K, lam, N)), 'w') as outfile:
-            json.dump({"p_loss":p_losses, "d_loss":d_losses }, outfile)
+        with open(os.path.join(output_dir, dataset_name, 'GD', 'losses-adam-K={}-lam={}-N={}.json'.format(K, lam, N)), 'w') as outfile:
+            json.dump({"p_loss":p_losses, "d_loss":d_losses}, outfile)
     
     deactivate_logger()
 
