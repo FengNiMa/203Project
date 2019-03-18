@@ -2,6 +2,8 @@ import random as rand
 import numpy as np
 import scipy as sp
 from scipy.stats import multivariate_normal as mvn
+from scipy import linalg
+from scipy.special import logsumexp
 import os, sys, time, pickle
 from tqdm import tqdm
 
@@ -24,13 +26,12 @@ def activate_logger(log_fname):
 def deactivate_logger():
     sys.stdout.log.close()
     sys.stdout = sys.stdout.terminal
-
+'''
 def log_likelihood(X, pi, mu, sigma):
     k = len(pi) # dimention
     d = sigma.shape[1]
     ll = 0.0
     for x in X:
-       
         try:
             s = 0
             for j in range(k):
@@ -39,12 +40,13 @@ def log_likelihood(X, pi, mu, sigma):
         except Exception as e:
             s = 0
             for j in range(k):
-                cov2 = np.matmul(cov[k].T, cov[k]) + torch.eye(d) * 1e-3 # min eig
+                cov2 = np.matmul(cov[k].T, cov[k]) + np.eye(d) * 1e-3 # min eig
                 sign, logdet = np.linalg.slogdet(cov2)
                 s += -d * 0.5 * math.log(2 * math.pi) - 0.5 * sign*logdet - 0.5 * np.linalg.inv(cov2).matmul(x - mu[j]).dot(x - mu[j])
             ll += s
 
     return ll
+'''
 
 def penalize_term(X, Z, pi, mu, sigma, lam):
     loss = 0
@@ -55,14 +57,59 @@ def penalize_term(X, Z, pi, mu, sigma, lam):
             s += pi[j] * mvn(mu[j], sigma[j]).pdf(z)
         loss += lam*s / Z_n
     return loss
+
+
+#precision is the inverse of covariance matrix
+def compute_precision_cholesky(covariances):
+    n_components, n_features, _ = covariances.shape
+    precisions_chol = np.empty((n_components, n_features, n_features))
+    for k, covariance in enumerate(covariances):
+        try:
+            cov_chol = linalg.cholesky(covariance, lower=True)
+        except linalg.LinAlgError:
+            raise ValueError(estimate_precision_error_message)
+        precisions_chol[k] = linalg.solve_triangular(cov_chol,
+                                                     np.eye(n_features),
+                                                     lower=True).T
+    return precisions_chol
+
+
+def compute_log_det_cholesky(matrix_chol, n_features):
+    n_components, _, _ = matrix_chol.shape
+    log_det_chol = (np.sum(np.log(
+        matrix_chol.reshape(n_components, -1)[:, ::n_features + 1]), 1))
+    return log_det_chol
+
+
+def log_prob_cholesky(X, means, precisions_chol):
+
+    n_samples, n_features = X.shape
+    n_components, _ = means.shape
+    # det(precision_chol) is half of det(precision)
+    log_det = compute_log_det_cholesky(precisions_chol, n_features)
+
+    log_prob = np.empty((n_samples, n_components))
+    for k, (mu, prec_chol) in enumerate(zip(means, precisions_chol)):
+        y = np.dot(X, prec_chol) - np.dot(mu, prec_chol)
+        log_prob[:, k] = np.sum(np.square(y), axis=1)
+
+    return -.5 * (n_features * np.log(2 * np.pi) + log_prob) + log_det
+
+def mean_log_likelihood(X, pi, means, precisions_chol):
+    weighted_log_prob = log_prob_cholesky(X, means, precisions_chol) + np.log(pi)
+    return logsumexp(weighted_log_prob, axis=1).mean()
+
    
 def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
-    n, p = X.shape
+    n, d = X.shape
     k = len(pi)
 
-    ll_old = log_likelihood(X, pi, mu, sigma)/n
-    losses = [ll_old]
     step_iterator = tqdm(range(max_iter))
+    
+    precisions_cholesky = compute_precision_cholesky(sigma)
+    ll_old = mean_log_likelihood(X, pi, mu, precisions_cholesky)
+    losses = [ll_old]
+    
     for i_iter in step_iterator:
         #print('EM Iteration %d: log-likelihood is %.6f'%(i_iter, ll_old))
 
@@ -72,7 +119,8 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
             for i in range(n):
                 w[j, i] = pi[j] * mvn(mu[j], sigma[j]).pdf(X[i])
         w /= w.sum(0)
-
+        
+        
         # M-step
         pi = np.zeros(k)
         for j in range(len(mu)):
@@ -80,21 +128,23 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
                 pi[j] += w[j, i]
         pi /= n
 
-        mu = np.zeros((k, p))
+        mu = np.zeros((k, d))
         for j in range(k):
             for i in range(n):
                 mu[j] += w[j, i] * X[i]
             mu[j] /= w[j, :].sum()
 
-        sigma = np.zeros((k, p, p))
+        sigma = np.zeros((k, d, d))
         for j in range(k):
             for i in range(n):
-                ys = np.reshape(X[i]- mu[j], (p,1))
-                sigma[j] += w[j, i] * np.dot(ys, ys.T)
+                ys = np.reshape(X[i]- mu[j], (d,1))
+                sigma[j] += w[j, i] * np.dot(ys, ys.T) 
             sigma[j] /= w[j,:].sum()
-
+            sigma[j] += np.eye(d) * 1e-6 #for possitive-ness
+        precisions_cholesky = compute_precision_cholesky(sigma)
+        
         # update complete log likelihoood
-        ll_new = log_likelihood(X, pi, mu, sigma)/n
+        ll_new = mean_log_likelihood(X, pi, mu, precisions_cholesky)
         losses.append(ll_new)
 
         if np.abs(ll_new - ll_old) < tol:
@@ -108,10 +158,12 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
 
 
 def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
-    n, p = X.shape
+    n, d = X.shape
     k = len(pi)
 
-    ll= log_likelihood(X, pi, mu, sigma)/n
+    precisions_cholesky = compute_precision_cholesky(sigma)
+    ll = mean_log_likelihood(X, pi, mu, precisions_cholesky)
+    
     loss = ll + penalize_term(X, Z, pi, mu, sigma, lmda)
     p_loss = [ll]
     d_loss = [loss]
@@ -136,16 +188,16 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
         pi /= n
         
         # M-iter initialization
-        mu = np.zeros((k, p))
+        mu = np.zeros((k, d))
         for j in range(k):
             for i in range(n):
                 mu[j] += w[j, i] * X[i]
             mu[j] /= w[j, :].sum()
 
-        sigma = np.zeros((k, p, p))
+        sigma = np.zeros((k, d, d))
         for j in range(k):
             for i in range(n):
-                ys = np.reshape(X[i]- mu[j], (p,1))
+                ys = np.reshape(X[i]- mu[j], (d,1))
                 sigma[j] += w[j, i] * np.dot(ys, ys.T)
             sigma[j] /= w[j,:].sum()
 
@@ -153,29 +205,29 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
         old_mu, old_sigma = mu, sigma
 
         for inner_iter in range(100):
-            gamma = np.zeros(k)
-            for j in range(k):
-                for z in Z:
-                    gamma[j] += pi[j]*mvn(old_mu[j], old_sigma[j]).pdf(z)
-            gamma *= lmda
+            gamma = np.zeros((len(Z),k))
+            
+            for iz, z in enumerate(Z):
+                for j in range(k):
+                    gamma[iz, j] += pi[j]*mvn(old_mu[j], old_sigma[j]).pdf(z)
 
-            mu = np.zeros((k, p))
+            mu = np.zeros((k, d))
             for j in range(k):
-                mu[j] -= np.array(gamma[j]*z)
+                mu[j] -= lmda * np.dot(gamma[:,j],Z)
                 for i in range(n):
                     mu[j] += w[j, i] * X[i]
-                mu[j] /= (w[j, :].sum() - gamma[j])
+                mu[j] /= w[j, :].sum() - gamma[:,j].sum()
 
-            sigma = np.zeros((k, p, p))
+            sigma = np.zeros((k, d, d))
             for j in range(k):
-                v_z_muj = np.reshape(z - old_mu[j],  (2, 1))
-                sigma[j] -= np.array(gamma[j] * np.dot(v_z_muj, v_z_muj.T))
+                diff_squared = np.array([np.dot(z - old_mu[j], z - old_mu[j]) for z in Z])
+                sigma[j] -= lmda * np.dot(gamma[:,j] , diff_squared)
                 for i in range(n):
-                    ys = np.reshape(X[i]- old_mu[j], (2, 1))
+                    ys = np.reshape(X[i]- old_mu[j], (d, 1))
                     sigma[j] += w[j, i] * np.dot(ys, ys.T)
-                sigma[j] /= w[j,:].sum()
+                sigma[j] /= w[j,:].sum() - gamma[:,j].sum()
             
-            if np.linalg.norm(old_mu - mu) + np.linalg.norm(old_sigma - sigma)  < 1e-10: #convergence criterion
+            if np.linalg.norm(old_mu - mu) + np.linalg.norm(old_sigma - sigma)  < 1e-10: #tol_inner
                 old_mu, old_sigma = mu, sigma
                 break
 
@@ -183,9 +235,10 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
         
         #M-iter ends
         inner_iter_n.append(inner_iter)
+        precisions_cholesky = compute_precision_cholesky(sigma)
 
         # update complete log likelihoood
-        ll = log_likelihood(X, pi, mu, sigma)/n
+        ll = mean_log_likelihood(X, pi, mu, precisions_cholesky)
         loss_ = ll + penalize_term(X, Z, pi, mu, sigma, lmda)
         p_loss.append(ll)
         d_loss.append(loss_)
@@ -200,19 +253,22 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
     return pi, mu, sigma, p_loss, d_loss, inner_iter_n
 
 
+
+
 if __name__ == '__main__':
     activate_logger('log-EM.txt')
     
     output_dir = 'results'
-    dataset_name = 'MNIST'
-    os.makedirs(os.path.join(output_dir, dataset_name, 'EM'), exist_ok=True)
+    dataset_name = 'multi-adv-2'
+    os.makedirs(os.path.join(output_dir, dataset_name, 'EM_updated'), exist_ok=True)
 
-    data_fname = os.path.join('datasets', dataset_name, 'mnist_1797_afterPCA.npz')
+    data_fname = os.path.join('datasets', dataset_name, 'data_multi_adv_1000.npz')
     load_data = np.load(data_fname)
-    N = 1797
-    #true_pi = load_data['pi']
-    #true_mu = load_data['mu']
-    X = load_data['data'][:N]
+    N = 1000
+
+    true_pi = load_data['pi']
+    true_mu = load_data['mu']
+    X = load_data['samples'][:N]
     Z = load_data['adv_sample']
     data_range = 1.0
     
@@ -226,7 +282,7 @@ if __name__ == '__main__':
     K_settings = [2, 5, 7, 10, 15]
     '''
     exps = 6
-    lam_settings = [10.0, 100.0, 1000.0]
+    lam_settings = [1.0, 10.0, 100.0, 1000.0]
     K_settings = [3, 5, 10]
 
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
@@ -254,7 +310,7 @@ if __name__ == '__main__':
 
 
             start_t = time.time()
-            pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas, lmda=lam)
+            pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas, lam)
             em_p_results.append({"init_guess":[pis, mus, sigmas],
                                 "pi":pi, "mu":mu, "conv":conv, 
                                 "p_loss":p_loss, "d_loss":d_loss, 
@@ -264,10 +320,10 @@ if __name__ == '__main__':
             if trials >= 3:
                 break
 
-        
+
         with open(os.path.join(output_dir, dataset_name, 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_results, p)
         with open(os.path.join(output_dir, dataset_name, 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_p_results, p)
-        
+
     deactivate_logger()
