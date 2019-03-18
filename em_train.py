@@ -222,7 +222,7 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
             for j in range(k):
                 for iz, z in enumerate(Z):
                     z_diff = np.reshape(z - mu[j], (d,1))
-                    sigma[j] -= gamma[i,j] * np.dot(z_diff, z_diff.T)
+                    sigma[j] -= gamma[iz,j] * np.dot(z_diff, z_diff.T)
                 sigma[j] *= lmda 
                 
                 for i in range(n):
