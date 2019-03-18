@@ -216,7 +216,7 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
                 mu[j] -= lmda * np.dot(gamma[:,j],Z)
                 for i in range(n):
                     mu[j] += w[j, i] * X[i]
-                mu[j] /= w[j, :].sum() - gamma[:,j].sum()
+                mu[j] /= w[j, :].sum() - lmda * gamma[:,j].sum()
 
             sigma = np.zeros((k, d, d))
             for j in range(k):
@@ -225,7 +225,7 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
                 for i in range(n):
                     ys = np.reshape(X[i]- old_mu[j], (d, 1))
                     sigma[j] += w[j, i] * np.dot(ys, ys.T)
-                sigma[j] /= w[j,:].sum() - gamma[:,j].sum()
+                sigma[j] /= w[j,:].sum() - lmda * gamma[:,j].sum()
             
             if np.linalg.norm(old_mu - mu) + np.linalg.norm(old_sigma - sigma)  < 1e-10: #tol_inner
                 old_mu, old_sigma = mu, sigma
