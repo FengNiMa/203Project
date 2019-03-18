@@ -220,8 +220,11 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
 
             sigma = np.zeros((k, d, d))
             for j in range(k):
-                diff_squared = np.array([np.dot(z - old_mu[j], z - old_mu[j]) for z in Z])
-                sigma[j] -= lmda * np.dot(gamma[:,j] , diff_squared)
+                for iz, z in enumerate(Z):
+                    z_diff = np.reshape(z - mu[j], (d,1))
+                    sigma[j] -= gamma[i,j] * np.dot(z_diff, z_diff.T)
+                sigma[j] *= lmda 
+                
                 for i in range(n):
                     ys = np.reshape(X[i]- old_mu[j], (d, 1))
                     sigma[j] += w[j, i] * np.dot(ys, ys.T)
