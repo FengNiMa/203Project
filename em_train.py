@@ -262,38 +262,34 @@ if __name__ == '__main__':
     activate_logger('log-EM.txt')
     
     output_dir = 'results'
-    dataset_name = 'multi-adv-2'
+    dataset_name = 'MNIST'
     os.makedirs(os.path.join(output_dir, dataset_name, 'EM_updated'), exist_ok=True)
 
-    data_fname = os.path.join('datasets', dataset_name, 'data_multi_adv_1000.npz')
+    data_fname = os.path.join('datasets', dataset_name, 'mnist_1797_afterPCA_adv.npz')
     load_data = np.load(data_fname)
-    N = 1000
+    N = 1797
 
-    true_pi = load_data['pi']
-    true_mu = load_data['mu']
-    X = load_data['samples'][:N]
+    #true_pi = load_data['pi']
+    #true_mu = load_data['mu']
+    X = load_data['samples']#[:N]
     Z = load_data['adv_sample']
     data_range = 1.0
     
 
     d = X.shape[1]
     
-    '''
+    
     #mnist settings
     exps = 2
-    lam_settings = [0] #[0.1, 1.0, 10.0, 100.0]
-    K_settings = [2, 5, 7, 10, 15]
-    '''
-    exps = 6
-    lam_settings = [1.0, 10.0, 100.0, 1000.0]
-    K_settings = [3, 5, 10]
+    lam_settings = [0.1, 1.0, 10.0, 100.0]
+    K_settings = [10,]
+    
 
     all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
 
     for K, lam in all_settings:
         em_results = []
         em_p_results = []
-        trials = 0
         for e in range(exps):
 
             print("k:", K,"lam:", lam)
@@ -302,14 +298,14 @@ if __name__ == '__main__':
             pis /= pis.sum()
             mus = np.random.random((K,d)) * data_range 
             sigmas = np.array([np.eye(d)] * K)
-
+            '''
             start_t = time.time()
             pi, mu, conv, losses, iter_n = em_gmm(X, pis, mus, sigmas)
             em_results.append({"init_guess":[pis, mus, sigmas],
                                 "pi":pi, "mu":mu, "conv":conv,
                                 "loss":losses, "iters":iter_n, 
                                 "time":time.time()-start_t})
-
+            '''
 
 
             start_t = time.time()
@@ -319,10 +315,6 @@ if __name__ == '__main__':
                                 "p_loss":p_loss, "d_loss":d_loss, 
                                 "iters":inner_iter,
                                 "time":time.time()-start_t})
-            trials += 1
-            if trials >= 3:
-                break
-
 
         with open(os.path.join(output_dir, dataset_name, 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
             pickle.dump(em_results, p)
