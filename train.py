@@ -14,27 +14,6 @@ import json
 #DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 DEVICE = torch.device('cpu')
 
-## Auxiliary classes
-class Logger(object):
-    def __init__(self, log_fname):
-        self.terminal = sys.stdout
-        self.log = open(log_fname, "w")
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)  
-
-    def flush(self):
-        pass
-
-def activate_logger(log_fname):
-    logger = Logger(log_fname)
-    sys.stdout = logger
-
-def deactivate_logger():
-    sys.stdout.log.close()
-    sys.stdout = sys.stdout.terminal
-
 
 def MoG_prob(x, pi, mu, cov, min_eig=1e-3):
     K, dim = mu.size()

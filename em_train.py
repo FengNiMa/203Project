@@ -6,6 +6,8 @@ from scipy import linalg
 from scipy.special import logsumexp
 import os, sys, time, pickle
 from tqdm import tqdm
+import argparse
+
 
 class Logger(object):
     def __init__(self, log_fname):
@@ -26,27 +28,6 @@ def activate_logger(log_fname):
 def deactivate_logger():
     sys.stdout.log.close()
     sys.stdout = sys.stdout.terminal
-'''
-def log_likelihood(X, pi, mu, sigma):
-    k = len(pi) # dimention
-    d = sigma.shape[1]
-    ll = 0.0
-    for x in X:
-        try:
-            s = 0
-            for j in range(k):
-                s += pi[j] * mvn(mu[j], sigma[j]).pdf(x)
-            ll += np.log(s)
-        except Exception as e:
-            s = 0
-            for j in range(k):
-                cov2 = np.matmul(cov[k].T, cov[k]) + np.eye(d) * 1e-3 # min eig
-                sign, logdet = np.linalg.slogdet(cov2)
-                s += -d * 0.5 * math.log(2 * math.pi) - 0.5 * sign*logdet - 0.5 * np.linalg.inv(cov2).matmul(x - mu[j]).dot(x - mu[j])
-            ll += s
-
-    return ll
-'''
 
 def penalize_term(X, Z, pi, mu, sigma, lam):
     loss = 0
@@ -256,69 +237,71 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
     return pi, mu, sigma, p_loss, d_loss, inner_iter_n
 
 
+def main(): # "standard" or "penalized"
 
+    parser = argparse.ArgumentParser(description='em_train parser')
+    parser.add_argument('--algo', type=str, default='penalized', help='regular or penalized')
+    parser.add_argument('--output_dir', type=str, default='results', help='output directory')
+    parser.add_argument('--dataset_name', type=str, default='MNIST', help='dataset name')
+    parser.add_argument('--dataset_file', type=str, default='mnist_1797_afterPCA_adv.npz', help='dataset file name')
 
-if __name__ == '__main__':
-    activate_logger('log-EM.txt')
-    
-    output_dir = 'results'
-    dataset_name = 'MNIST'
-    os.makedirs(os.path.join(output_dir, dataset_name, 'EM_updated'), exist_ok=True)
+    parser.add_argument('--num_experiments', type=int, default=1, help='# of times each experiment setting will be performed')
+    parser.add_argument('--k', type=int, default=10, help='number of Gaussians')
+    parser.add_argument('--lam', type=float, default=10.0, help='lambda value')
 
-    data_fname = os.path.join('datasets', dataset_name, 'mnist_1797_afterPCA_adv.npz')
+    args = parser.parse_args()
+
+    activate_logger('log-EM-%s.txt'%args.algo)
+
+    data_fname = os.path.join('datasets', args.dataset_name, args.dataset_file)
     load_data = np.load(data_fname)
-    N = 1797
 
-    #true_pi = load_data['pi']
-    #true_mu = load_data['mu']
-    X = load_data['samples']#[:N]
+    output_path = os.path.join(args.output_dir, args.dataset_name, args.algo)
+    os.makedirs(output_path, exist_ok=True)
+    with open(os.join(output_path,'args.txt'), 'w') as f:
+        f.write('\n'.join(sys.argv[1:]))
+
+    X = load_data['samples']
     Z = load_data['adv_sample']
     data_range = 1.0
-    
-
     d = X.shape[1]
     
+    K = args.k
+    lam = args.lam
     
-    #mnist settings
-    exps = 2
-    lam_settings = [0.1, 1.0, 10.0, 100.0]
-    K_settings = [10,]
-    
-
-    all_settings = [(K, lam) for lam in lam_settings for K in K_settings]
-
-    for K, lam in all_settings:
-        em_results = []
-        em_p_results = []
-        for e in range(exps):
-
-            print("k:", K,"lam:", lam)
-            # initial guesses for parameters
-            pis = np.ones(K)
-            pis /= pis.sum()
-            mus = np.random.random((K,d)) * data_range 
-            sigmas = np.array([np.eye(d)] * K)
-            '''
+    for e in range(args.num_experiments):
+        results = []
+        print("k:", K,"lam:", lam)
+        
+        # initial guesses for parameters
+        pis = np.ones(K)
+        pis /= pis.sum()
+        mus = np.random.random((K,d)) * data_range 
+        sigmas = np.array([np.eye(d)] * K)
+        
+        if args.algo == "regular":
             start_t = time.time()
             pi, mu, conv, losses, iter_n = em_gmm(X, pis, mus, sigmas)
-            em_results.append({"init_guess":[pis, mus, sigmas],
+            results.append({"init_guess":[pis, mus, sigmas],
                                 "pi":pi, "mu":mu, "conv":conv,
                                 "loss":losses, "iters":iter_n, 
                                 "time":time.time()-start_t})
-            '''
-
-
+        
+        elif args.algo == "penalized":
             start_t = time.time()
             pi, mu, conv, p_loss, d_loss, inner_iter = em_gmm_penalized(X, Z, pis, mus, sigmas, lam)
-            em_p_results.append({"init_guess":[pis, mus, sigmas],
+            results.append({"init_guess":[pis, mus, sigmas],
                                 "pi":pi, "mu":mu, "conv":conv, 
                                 "p_loss":p_loss, "d_loss":d_loss, 
                                 "iters":inner_iter,
                                 "time":time.time()-start_t})
 
-        with open(os.path.join(output_dir, dataset_name, 'EM', 'EM-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
-            pickle.dump(em_results, p)
-        with open(os.path.join(output_dir, dataset_name, 'EM', 'Penalized-K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
-            pickle.dump(em_p_results, p)
+
+        with open(os.path.join(output_path, 'K={}-lam={}-N={}.p'.format(K, lam, N)), 'wb') as p:
+            pickle.dump(results, p)
 
     deactivate_logger()
+
+if __name__ == '__main__':
+    main()
+    
