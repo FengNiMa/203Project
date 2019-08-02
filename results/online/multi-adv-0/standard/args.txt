@@ -1,9 +1,0 @@
-{
-  "algo": "standard",
-  "output_dir": "results/online/multi-adv-0/standard",
-  "dataset_file": "multi-adv-0/data_multi_adv.npz",
-  "load_path": "",
-  "num_experiments": 1,
-  "k": 5,
-  "lam": 10.0
-}
