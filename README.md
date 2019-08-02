@@ -11,11 +11,11 @@ On the EM Algorithm for Gaussian Mixture Models with Adversarial Regularization
 Python 3, numpy, scipy, (and tqdm for logging)
 
 ## Test Run
-#(standard)
+# standard
 ```
 python em_train.py --algo penalized --output_dir results/multi-adv-test --dataset_file multi-adv-0/data_multi_adv.npz
 ```
-#(online)
+# online
 ```
 ./online_sample.sh
 ```
