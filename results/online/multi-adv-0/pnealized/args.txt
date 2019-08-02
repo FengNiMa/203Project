@@ -1,0 +1,9 @@
+{
+  "algo": "penalized",
+  "output_dir": "results/online/multi-adv-0/pnealized",
+  "dataset_file": "multi-adv-0/data_multi_adv.npz",
+  "load_path": "results/online/multi-adv-0/standard/results.p",
+  "num_experiments": 1,
+  "k": 5,
+  "lam": 10.0
+}
