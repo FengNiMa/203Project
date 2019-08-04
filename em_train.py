@@ -15,6 +15,8 @@ def parse():
     parser.add_argument('--k', type=int, default=5, help='number of Gaussians')
     parser.add_argument('--lam', type=float, default=10.0, help='lambda value')
 
+    parser.add_argument('--index', type=int, default=-1, help='index of online training')
+
     return parser.parse_args()
 
 class Logger(object):
@@ -108,8 +110,11 @@ def main():
         else:
             print("invalid algorithm specification. Only support 'standard' or 'penalized'. ")
 
-
-        with open(os.path.join(args.output_dir, 'results.p'), 'wb') as p:
+        if args.index == -1:
+            filename = 'results.p'
+        else:
+            filename = 'results-' + str(args.index) + '.p'
+        with open(os.path.join(args.output_dir, filename), 'wb') as p:
             pickle.dump(results, p)
 
     logger.deactivate()

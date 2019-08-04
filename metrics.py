@@ -6,6 +6,10 @@ from ndb import NDB
 Suppose p and q are two distributions on R^d. We calculate their distance.
 """
 
+class distribution():
+    def __init__(self, pi, mu, cov):
+        pass
+
 def sample_from(p, n_sample=1000):
     # p is tuple of (pi, mu, sigma)
     pi, mu, cov = p
@@ -58,7 +62,7 @@ def calc_FID(p, q):
     # \|\mu_p-\mu_q\|_2^2 + Tr(\Sigma_p+\Sigma_q-2\sqrt{\Sigma_p\Sigma_q})
     pi_q, mu_q, cov_q = q
     pi_p, mu_p, cov_p = p
-    pi_q, mu_q, cov_q = np.array(pi_q), np.array(mu_q), np.array(cov_q)
+    pi_q, mu_q, cov_q = np.array(q.pi), np.array(mu_q), np.array(cov_q)
     pi_p, mu_p, cov_p = np.array(pi_p), np.array(mu_p), np.array(cov_p)
     Mu_p, Mu_q = pi_p.dot(mu_p), pi_q.dot(mu_q)
     # Sigma_p, Sigma_q?
