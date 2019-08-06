@@ -5,3 +5,5 @@ log*.txt
 Results-*.ipynb
 __pycache__
 */__pycache__/*
+results/*
+figures/*
