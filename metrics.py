@@ -79,7 +79,6 @@ def calc_negELBO(p, q):
 def calc_f(p, q, f):
     pass
 
-
 def import_result(file):
     if file[-1] == "p":
         path = os.path.join('results', file)
