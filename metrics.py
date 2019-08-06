@@ -8,7 +8,9 @@ Suppose p and q are two distributions on R^d. We calculate their distance.
 
 class distribution():
     def __init__(self, pi, mu, cov):
-        pass
+        self.pi = pi
+        self.mu = mu
+        self.cov = cov
 
 def sample_from(p, n_sample=1000):
     # p is tuple of (pi, mu, sigma)
@@ -77,6 +79,16 @@ def calc_negELBO(p, q):
 def calc_f(p, q, f):
     pass
 
+
+def import_result(file):
+    if file[-1] == "p":
+        path = os.path.join('results', file)
+    elif os.path.exists(os.path.join('results', file, 'results.p')):
+        path = os.path.join('results', file, 'results.p')
+    elif os.path.exists(os.path.join('results', file, 'results.p')):
+        path = os.path.join('results', file, 'results.p')
+    dic = pickle.load(open(path, 'rb'))[0]
+    return dic['pi'], dic['mu'], dic['cov']
 
 p = ([0.4, 0.6],
      [[-1.0, -1.0], [1.0, 1.0]],
