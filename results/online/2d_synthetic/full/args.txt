@@ -1,0 +1,10 @@
+{
+  "algo": "penalized",
+  "output_dir": "results/online/2d_synthetic/full",
+  "dataset_file": "2d_synthetic/MoG5_full.npz",
+  "load_path": "",
+  "num_experiments": 1,
+  "k": 5,
+  "lam": 10.0,
+  "index": -1
+}

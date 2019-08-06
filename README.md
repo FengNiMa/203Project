@@ -26,7 +26,7 @@ python visualize.py multi-adv-0/data_multi_adv.npz  --save_path multi-adv-test/d
 ```
 #### Results
 ```
-python visualize.py multi-adv-test  --save_path multi-adv-test/em.jpg
+python visualize.py multi-adv-test/results.p  --save_path multi-adv-test/em.jpg
 ```
 ## Notice
 - Don't modify the Results.ipynb directly; copy it to a new file named Results-xxx.ipynb if changing is needed (it will be in .gitignore).

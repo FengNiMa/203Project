@@ -7,8 +7,7 @@ import math, os, argparse, pickle
 def parse():
     parser = argparse.ArgumentParser(description='em result visualizer')
     parser.add_argument('file_path', type=str, help='file to visualize.\
-                                                     (if results: directory name, \
-                                                      if dataset: path to .npz file')
+                                                     (.p or .npz file')
     parser.add_argument('--save_path', type=str, default='plot.jpg', help='path to save image')
     return parser.parse_args()
 
@@ -38,7 +37,7 @@ def MoG_prob_(X,phi,mu,cov):
 def MoG_plot(pi, mu, cov, save_path):
     plt.figure(figsize=(5, 5))
 
-    x1 = x2 = np.linspace(-2.0, 8.0, 101)
+    x1 = x2 = np.linspace(0.0, 10.0, 101)
     p_lists = []
     X = []
     for _x1 in x1:
@@ -47,8 +46,8 @@ def MoG_plot(pi, mu, cov, save_path):
     P = MoG_prob_(X, pi, mu, cov).reshape((len(x2),len(x1)))
 
     plt.imshow(P, origin='lower', interpolation='bilinear')
-    plt.xticks(np.linspace(0, 100, 6), np.linspace(-2, 8, 6))
-    plt.yticks(np.linspace(0, 100, 6), np.linspace(-2, 8, 6))
+    plt.xticks(np.linspace(0, 100, 6), np.linspace(0, 10, 6))
+    plt.yticks(np.linspace(0, 100, 6), np.linspace(0, 10, 6))
     plt.savefig(save_path)
 
 def data_plot(samples, adv_sample, save_path):
@@ -84,15 +83,7 @@ def main():
         pi, mu, cov = import_result(os.path.join('results', file))
         MoG_plot(pi,mu,cov,save_path)
     else:
-        file = os.path.join('results', file, 'results.p')
-        if os.path.exists(file):
-            pi, mu, cov = import_result(file)
-            MoG_plot(pi,mu,cov,save_path)   
-        elif os.path.exists(os.path.join('results', file, 'results.p')):
-            pi, mu, cov = import_result(os.path.join( file, 'results.p'))
-            MoG_plot(pi,mu,cov,save_path)   
-        else:
-            print("Please enter valid file name (end with .p or .npz or is a directory)")
+        print("Please enter valid file name (end with .p or .npz)")
 
 if __name__ == '__main__':
     main()
