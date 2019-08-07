@@ -18,6 +18,7 @@ python3 em_train.py --algo standard --output_dir results/${ONLINE_RESULT_PATH}\
   --k $K\
   --lam $LAM
 echo 'Standard EM finished'
+
 python3 visualize.py $DATASET  --save_path ${DATASET_NAME}/dataset.jpg
 python3 visualize.py ${ONLINE_RESULT_PATH}/results-0.p  --save_path ${ONLINE_RESULT_PATH}/penalized-0.jpg\
   --plot_process True
@@ -38,10 +39,12 @@ do
     --load_path results/${ONLINE_RESULT_PATH}/results-${PREV_i}.p\
     --k $K\
     --lam $LAM
+  echo 'Online experiment '$i' finished'
+
   python3 visualize.py ${ONLINE_RESULT_PATH}/results-${i}.p --save_path ${ONLINE_RESULT_PATH}/penalized-${i}.png
 	echo 'Visualization '$i' finished'
+
   ## TO DO: save figs, calculate metrics
-  echo 'Online experiment '$i' finished'
   i=$(($i+1))
 done
 
@@ -50,6 +53,7 @@ python3 em_train.py --algo penalized --output_dir results/$FULL_RESULT_PATH \
   --dataset_file $DATASET\
   --k $K\
   --lam $LAM
+echo 'Full penalized EM finished'
+
 python3 visualize.py ${FULL_RESULT_PATH}/results.p --save_path ${FULL_RESULT_PATH}/full.png\
   --plot_process True
-echo 'Full penalized EM finished'

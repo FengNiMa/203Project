@@ -56,7 +56,7 @@ def log_prob_cholesky(X, means, precisions_chol):
 
 def mean_log_likelihood(X, pi, means, precisions_chol):
     weighted_log_prob = log_prob_cholesky(X, means, precisions_chol) + np.log(pi)
-    return logsumexp(weighted_log_prob, axis=1).mean()
+    return -logsumexp(weighted_log_prob, axis=1).mean()
 
    
 def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
@@ -208,9 +208,9 @@ def em_gmm_penalized(X, Z, pi, mu, sigma, lmda=1, tol=1e-6, max_iter=1000):
         d_loss.append(loss_)
         
         if i_iter % 10 == 0:
-            print('Iteration %d \tlog-likelihood: %.6f'%(i_iter, loss_))
+            print('Iteration %d \tneg-log-likelihood: %.6f'%(i_iter, loss_))
         if np.abs(loss_ - loss) < tol:
-            print('Terminate! iteration %d: log-likelihood is %.6f'%(i_iter, loss_))
+            print('Terminate! iteration %d: neg-log-likelihood is %.6f'%(i_iter, loss_))
             step_iterator.close()
             break
             

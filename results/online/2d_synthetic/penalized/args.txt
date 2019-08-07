@@ -1,10 +1,10 @@
 {
-  "algo": "penalized",
+  "algo": "standard",
   "output_dir": "results/online/2d_synthetic/penalized",
-  "dataset_file": "2d_synthetic/MoG5_full8.npz",
-  "load_path": "results/online/2d_synthetic/penalized/results-7.p",
+  "dataset_file": "2d_synthetic/MoG5_full.npz",
+  "load_path": "",
   "num_experiments": 1,
   "k": 5,
   "lam": 800.0,
-  "index": 8
+  "index": 0
 }
