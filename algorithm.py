@@ -107,9 +107,9 @@ def em_gmm(X, pi, mu, sigma, tol=1e-6, max_iter=1000):
         losses.append(ll_new)
 
         if i_iter % 10 == 0:
-            print('Iteration %d \tlog-likelihood: %.6f'%(i_iter, ll_new))
+            print('Iteration %d \tneg-log-likelihood: %.6f'%(i_iter, ll_new))
         if np.abs(ll_new - ll_old) < tol:
-            print('Terminate! iteration %d: log-likelihood is %.6f'%(i_iter, ll_new))
+            print('Terminate! iteration %d: neg-log-likelihood is %.6f'%(i_iter, ll_new))
             step_iterator.close()
             break
         

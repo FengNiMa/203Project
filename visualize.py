@@ -19,7 +19,7 @@ def import_result(file):
 def import_data(file):
     data_fname = os.path.join('datasets', file)
     load_data = np.load(data_fname)
-    return load_data['samples'], load_data['adv_sample']
+    return load_data['samples'], load_data['adv_sample'], load_data
 
 def MoG_prob_(X,phi,mu,cov):
     phi = np.array(phi)
@@ -37,7 +37,7 @@ def MoG_prob_(X,phi,mu,cov):
 def MoG_plot(pi, mu, cov, save_path):
     plt.figure(figsize=(5, 5))
 
-    x1 = x2 = np.linspace(0.0, 10.0, 101)
+    x1 = x2 = np.linspace(0.0, 8.0, 101)
     p_lists = []
     X = []
     for _x1 in x1:
@@ -46,8 +46,8 @@ def MoG_plot(pi, mu, cov, save_path):
     P = MoG_prob_(X, pi, mu, cov).reshape((len(x2),len(x1)))
 
     plt.imshow(P, origin='lower', interpolation='bilinear')
-    plt.xticks(np.linspace(0, 100, 6), np.linspace(0, 10, 6))
-    plt.yticks(np.linspace(0, 100, 6), np.linspace(0, 10, 6))
+    plt.xticks(np.linspace(0, 100, 6), np.linspace(0, 8, 6))
+    plt.yticks(np.linspace(0, 100, 6), np.linspace(0, 8, 6))
     plt.savefig(save_path)
 
 def value_plot(vec, save_path):
@@ -66,8 +66,8 @@ def data_plot(samples, adv_sample, save_path):
     x2 = [x[1] for x in adv_sample]
     plt.scatter(x1, x2, s=10, marker='X')
     
-    plt.xlim(-2, 8)
-    plt.ylim(-2, 8)
+    plt.xlim(0, 8)
+    plt.ylim(0, 8)
     plt.savefig(save_path)
 
 def main():
@@ -81,8 +81,10 @@ def main():
     ftype = file.split(".")[-1]
     # dataset file
     if ftype == "npz":
-        x, z = import_data(file)
+        x, z, data = import_data(file)
         data_plot(x, z, save_path)
+        tmp_path = '/'.join(save_path.split('/')[:-1])
+        MoG_plot(data['pi'], data['mu'], data['cov'], tmp_path + '/density.png')
     # everything below is result
     elif ftype == "p":
         pi, mu, cov, dic = import_result(os.path.join('results', file))
