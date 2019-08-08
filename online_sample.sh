@@ -9,27 +9,30 @@ DATASET_NAME='2d_synthetic/MoG5_full'
 DATASET='2d_synthetic/MoG5_full.npz'
 # parameters
 K=5
-LAM=800
+LAM=100
+BATCH_SIZE=4
 
-# Standard em training without adversaries, results-0.p
-python3 em_train.py --algo standard --output_dir results/${ONLINE_RESULT_PATH}\
-  --index 0\
-  --dataset_file $DATASET\
-  --k $K\
-  --lam $LAM
-echo 'Standard EM finished'
-
-python3 visualize.py $DATASET  --save_path ${DATASET_NAME}/dataset.jpg
-python3 visualize.py ${ONLINE_RESULT_PATH}/results-0.p  --save_path ${ONLINE_RESULT_PATH}/penalized-0.jpg\
-  --plot_process True
+#python3 visualize.py $DATASET  --save_path ${DATASET_NAME}/dataset.png
+#
+## Standard em training without adversaries, results-0.p
+#python3 em_train.py --algo standard --output_dir results/${ONLINE_RESULT_PATH}\
+#  --index 0\
+#  --dataset_file $DATASET\
+#  --k $K\
+#  --lam $LAM
+#echo 'Standard EM finished'
+#
+#python3 visualize.py ${ONLINE_RESULT_PATH}/results-0.p  --save_path ${ONLINE_RESULT_PATH}/penalized-0.png\
+#  --plot_process True
 
 # Construct online datasets
-python3 construct_online_datasets.py --dataset_file $DATASET
+python3 construct_online_datasets.py --dataset_file $DATASET\
+  --batch_size $BATCH_SIZE
 echo 'Online data construction finished'
 
 # Load previous result and run penaized algorithm, results-i.p
 i=1
-while [ $i -lt 9 ]
+while [ $i -lt $((7/$BATCH_SIZE+2)) ]
 do
   PREV_i=$(($i-1))
   DATASET_this=$DATASET_NAME$i.npz
