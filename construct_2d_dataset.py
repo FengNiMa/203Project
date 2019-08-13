@@ -1,7 +1,7 @@
 import numpy as np
 import math
 
-def MoG_generation(N=1000):
+def MoG_generation(N=200):
     K = 5
     data_dim = 2
 
@@ -17,14 +17,13 @@ def MoG_generation(N=1000):
     while len(samples_list) < N:
         cls = np.random.randint(K)
         sample = np.random.multivariate_normal(mu[cls], cov[cls])
+        samples_list.append(sample)
 
-        dist = sample-[4,4]
-        if 3 <= np.linalg.norm(dist, ord=1) <= 4 and dist[0]*dist[1] < 0:
-            pass  # delete sample
-        else:
-            samples_list.append(sample)
+    # noise
+    for _ in range(int(N/2)):
+        samples_list.append(np.random.uniform(2, 6, data_dim))
+
     samples = np.array(samples_list)
-
     return pi, mu, cov, samples, adv_sample
 
 pi, mu, cov, samples, adv_sample = MoG_generation()
