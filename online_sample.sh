@@ -11,19 +11,19 @@ DATASET_NAME=$A'/'$B
 DATASET=${DATASET_NAME}'.npz'
 # parameters
 K=5
-LAM=0
+LAM=10
 BATCH_SIZE=4
 
-#python3 visualize.py $DATASET  --save_path ${DATASET_NAME}/dataset.png
-#
-## ------------------------------Standard EM------------------------------
-## Standard EM training without adversaries, results-0.p
-#python3 em_train.py --algo standard --output_dir results/${ONLINE_RESULT_PATH}\
-#  --index 0\
-#  --dataset_file $DATASET\
-#  --k $K\
-#  --lam $LAM
-#echo 'Standard EM finished'
+python3 visualize.py $DATASET  --save_path ${DATASET_NAME}/dataset.png
+
+# ------------------------------Standard EM------------------------------
+# Standard EM training without adversaries, results-0.p
+python3 em_train.py --algo standard --output_dir results/${ONLINE_RESULT_PATH}\
+  --index 0\
+  --dataset_file $DATASET\
+  --k $K\
+  --lam $LAM
+echo 'Standard EM finished'
 
 python3 visualize.py ${ONLINE_RESULT_PATH}/results-0.p  --save_path ${ONLINE_RESULT_PATH}/penalized-0.png\
   --plot_process True
