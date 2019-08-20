@@ -79,4 +79,5 @@ python3 visualize.py ${FULL_RESULT_PATH}/results.p --save_path ${FULL_RESULT_PAT
   --plot_process True
 
 python3 metrics.py --dataset $DATASET\
-  --result_path 'online/'${A}
+  --result_path 'online/'${A}\
+  --is_distr True
