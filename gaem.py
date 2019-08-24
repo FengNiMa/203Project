@@ -96,10 +96,8 @@ def main():
     print("Baseline loss: %0.2f" % losses[-1])
 
 
-
-
     oracle = Net().load_state_dict("./notebooks/model95.pth")
-    epochs = 5
+    epochs = 10
     Z = np.array([])
 
     for i in range(1, epochs+1):
