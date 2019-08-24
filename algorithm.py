@@ -7,6 +7,32 @@ from scipy.special import logsumexp
 from tqdm import tqdm
 
 
+def init_guess(K, d):
+    """
+    k: number of clusters
+    d: dimention of data
+    """
+    pis = np.ones(K)
+    pis /= pis.sum()
+    mus = np.random.random((K,d))
+    sigmas = np.array([np.eye(d)] * K)
+    return pis, mus, sigmas
+
+def sample(k, pi, mu, sigma):
+    """
+    k: number of samples to be generated
+    pi, mu, sigma: full list of parameters of the GMM model
+    """
+    rng = np.random.mtrand._rand
+
+    n_samples_comp = rng.multinomial(k, pi)
+
+    X = np.vstack([
+        rng.multivariate_normal(mean, covariance, int(sample))
+        for (mean, covariance, sample) in zip(mu, sigma, n_samples_comp)])
+
+    return X
+
 def penalize_term(X, Z, pi, mu, sigma, lam):
     loss = 0
     Z_n = len(Z)

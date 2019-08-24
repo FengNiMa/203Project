@@ -58,7 +58,7 @@ def main():
 
     args = parse()
 
-    # set up outout
+    # set up output
     os.makedirs(args.output_dir, exist_ok=True)
     with open(os.path.join(args.output_dir,'args.txt'), 'w') as f:
         json.dump(args.__dict__, f, indent=2)
