@@ -1,15 +1,13 @@
 import numpy as np
 import os
-from collections import defaultdict
 
 def read(file):
     data = np.loadtxt(file, delimiter=',', dtype=str)
     header = open(file).readline()
     return header, data
 
-def main():
+def main(folder, selected):
     # read data
-    folder = '2dmetrics'
     data = {}
     header = []
     for i in range(10):
@@ -45,17 +43,19 @@ def main():
                    header=header)
 
     # output as latex format
-    selected = ['NDB', 'JS', 'negLogLikelihood', 'MMD rbf', 'KL', 'total variation', 'chi square']
+
     backslash = '\\'
-    trun = lambda x: np.around(x, decimals=4)
+    trun = lambda x: np.around(x, decimals=3)
     X = [[' & '.join(['model']+selected) + backslash + backslash + ' ' + backslash + 'hline']]
     X.append([' & '.join(['EM']   +[str(trun(resultsEM[h][0]))    + ' $'+backslash+'pm$ ' + str(trun(resultsEM[h][1]))
                                     for h in selected]) + backslash + backslash])
     X.append([' & '.join(['penEM']+[str(trun(resultspenEM[h][0])) + ' $'+backslash+'pm$ ' + str(trun(resultspenEM[h][1]))
-                                    for h in selected]) + backslash + backslash])
+                                    for h in selected]) + backslash + backslash + ' ' + backslash + 'hline'])
     np.savetxt(fname=os.path.join(folder + '.txt'),
                X=X,
                fmt='%s')
 
 if __name__ == '__main__':
-    main()
+    selected = ['NDB', 'negLogLikelihood', 'KL', 'JS', 'MMD rbf', 'total variation', 'chi square']
+    main('1dmetrics', selected)
+    main('2dmetrics', selected)
