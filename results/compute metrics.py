@@ -9,7 +9,7 @@ def read(file):
 
 def main():
     # read data
-    folder = '1dmetrics'
+    folder = '2dmetrics'
     data = {}
     header = []
     for i in range(10):
@@ -47,9 +47,12 @@ def main():
     # output as latex format
     selected = ['NDB', 'JS', 'negLogLikelihood', 'MMD rbf', 'KL', 'total variation', 'chi square']
     backslash = '\\'
+    trun = lambda x: np.around(x, decimals=4)
     X = [[' & '.join(['model']+selected) + backslash + backslash + ' ' + backslash + 'hline']]
-    X.append([' & '.join(['EM']   +[str(resultsEM[h][0])    + ' $'+backslash+'pm$ ' + str(resultsEM[h][1])    for h in selected]) + backslash + backslash])
-    X.append([' & '.join(['penEM']+[str(resultspenEM[h][0]) + ' $'+backslash+'pm$ ' + str(resultspenEM[h][1]) for h in selected]) + backslash + backslash])
+    X.append([' & '.join(['EM']   +[str(trun(resultsEM[h][0]))    + ' $'+backslash+'pm$ ' + str(trun(resultsEM[h][1]))
+                                    for h in selected]) + backslash + backslash])
+    X.append([' & '.join(['penEM']+[str(trun(resultspenEM[h][0])) + ' $'+backslash+'pm$ ' + str(trun(resultspenEM[h][1]))
+                                    for h in selected]) + backslash + backslash])
     np.savetxt(fname=os.path.join(folder + '.txt'),
                X=X,
                fmt='%s')
