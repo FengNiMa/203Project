@@ -10,8 +10,10 @@ def main(folder, selected):
     # read data
     data = {}
     header = []
+    nrow = 2
     for i in range(10):
         header, data[i] = read(os.path.join(folder, 'metrics'+str(i)+'.csv'))
+        nrow = len(data[i])
 
     # set headers
     headers = header.split(',')
@@ -20,42 +22,36 @@ def main(folder, selected):
             headers[j] = headers[j][2:]
         if '\n' in headers[j]:
             headers[j] = headers[j][:-1]
+        if headers[j] == 'MMD rbf':
+            headers[j] = 'MMD'
+        if headers[j] == 'negLogLikelihood':
+            headers[j] = '$-\log\ell$'
 
     # set results
-    resultsEM, resultspenEM = {}, {}
+    results = {i:{} for i in range(nrow)}
     for j in range(1, len(headers)):
-        array = [float(d[0][j]) for d in data.values()]
-        resultsEM[headers[j]] = (np.mean(array), np.std(array),)
-        array = [float(d[1][j]) for d in data.values()]
-        resultspenEM[headers[j]] = (np.mean(array), np.std(array),)
-
-    # writa mean to csv
-    savecsv = False
-    if savecsv:
-        X = [['EM'] + [resultsEM[h][0] for h in headers[1:]],
-              ['penEM'] + [resultspenEM[h][0] for h in headers[1:]],
-              ['EM std'] + [resultsEM[h][1] for h in headers[1:]],
-              ['penEM std'] + [resultspenEM[h][1] for h in headers[1:]]]
-        np.savetxt(fname=os.path.join(folder+'.csv'),
-                   X=X,
-                   fmt='%s',
-                   delimiter=',',
-                   header=header)
+        for i in range(nrow):
+            array = [float(d[i][j]) for d in data.values()]
+            results[i][headers[j]] = (np.mean(array), np.std(array),)
 
     # output as latex format
-
     backslash = '\\'
     trun = lambda x: np.around(x, decimals=3)
-    X = [[' & '.join(['model']+selected) + backslash + backslash + ' ' + backslash + 'hline']]
-    X.append([' & '.join(['EM']   +[str(trun(resultsEM[h][0]))    + ' $'+backslash+'pm$ ' + str(trun(resultsEM[h][1]))
-                                    for h in selected]) + backslash + backslash])
-    X.append([' & '.join(['penEM']+[str(trun(resultspenEM[h][0])) + ' $'+backslash+'pm$ ' + str(trun(resultspenEM[h][1]))
-                                    for h in selected]) + backslash + backslash + ' ' + backslash + 'hline'])
+    X = [[' & '.join(['Model']+selected) + backslash + backslash + ' ' + backslash + 'hline']]
+    for i in range(nrow):
+        if i < nrow - 1:
+            X.append([' & '.join(
+                [data[0][i][0]] + [str(trun(results[i][h][0])) + ' $'+backslash+'pm$ ' + str(trun(results[i][h][1]))
+                                   for h in selected]) + backslash + backslash])
+        else:
+            X.append([' & '.join(
+                [data[0][i][0]] + [str(trun(results[i][h][0])) + ' $' + backslash + 'pm$ ' + str(trun(results[i][h][1]))
+                                   for h in selected]) + backslash + backslash + ' ' + backslash + 'hline'])
+
     np.savetxt(fname=os.path.join(folder + '.txt'),
                X=X,
                fmt='%s')
 
 if __name__ == '__main__':
-    selected = ['NDB', 'negLogLikelihood', 'KL', 'JS', 'MMD rbf', 'total variation', 'chi square']
-    main('1dmetrics', selected)
-    main('2dmetrics', selected)
+    selected = ['NDB', '$-\log\ell$', 'KL', 'JS', 'MMD']
+    main('metricsagain', selected)
